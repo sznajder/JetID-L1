@@ -33,47 +33,37 @@ from qkeras.utils import _add_supported_quantized_objects
 co = {}
 _add_supported_quantized_objects(co)    
 
-model = load_model(model_file_path, custom_objects=co)
+
+model_softmax = load_model(model_file_path, custom_objects=co)
+model = Model(inputs=model_softmax.input, outputs=model_softmax.get_layer('q_dense_1').output)
 model.summary()
 
 
 import hls4ml
-config = hls4ml.utils.config_from_keras_model(model, granularity='name')
+custom = True
+output_dir = 'hls_output_custom'
 
-config['Model']['ReuseFactor'] = 1
-config['Model']['Strategy'] = 'Latency'
-config['Model']['Precision'] = 'ap_fixed<32,16>'
-#config['SkipOptimizers'] = ['optimize_pointwise_conv']
-for layer in config['LayerName'].keys():
-    config['LayerName'][layer]['Trace'] = False
-    if 'input' in layer:
-        config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<32,16>'
-    elif 'batchnorm' in layer:
-        config['LayerName'][layer]['accum_t'] = 'ap_fixed<32,16>'
-        config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<32,16>'
-        config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<32,16>'
-        config['LayerName'][layer]['Precision']['scale'] = 'ap_fixed<32,16>'
-        config['LayerName'][layer]['Precision']['bias'] = 'ap_fixed<32,16>'
-    elif 'linear' in layer:
-        config['LayerName'][layer]['Precision'] = {}
-        config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<9,6>'
-        config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<9,6>'
-    elif 'tmul' in layer and 'linear' not in layer:
-        config['LayerName'][layer]['Precision']['weight'] = 'ap_uint<1>'
-        config['LayerName'][layer]['Precision']['bias'] = 'ap_uint<1>'
-        config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<9,6>'
-        config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<9,6>'
-    elif 'q_activation' in layer:
-        config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<9,6>'
-        config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<8,3,AP_RND,AP_SAT>'
-    elif 'q_conv1d' in layer:
-        config['LayerName'][layer]['accum_t'] = 'ap_fixed<32,16>'
-        config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<9,6>'
-        config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<9,6>'
-    elif 'q_dense' in layer:
-        config['LayerName'][layer]['accum_t'] = 'ap_fixed<32,16>'
-        config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<9,6>'
-        config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<9,6>'
+config = hls4ml.utils.config_from_keras_model(model, granularity='name', default_reuse_factor=1, default_precision='ap_fixed<24,12>')
+if custom:
+    for layer in config['LayerName'].keys():
+        if 'linear' in layer:
+            config['LayerName'][layer]['Precision'] = {}
+            config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<24,12>'
+            config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<24,12>'
+        elif 'tmul' in layer and 'linear' not in layer:
+            config['LayerName'][layer]['Precision']['weight'] = 'ap_uint<1>'
+            config['LayerName'][layer]['Precision']['bias'] = 'ap_uint<1>'
+        elif 'q_activation' in layer:
+            config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<8,3,AP_RND,AP_SAT>'
+            config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<8,3,AP_RND,AP_SAT>'
+        elif 'q_conv1d' in layer:
+            config['LayerName'][layer]['accum_t'] = 'ap_fixed<24,12>'
+            config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<9,6>'
+            config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<9,6>'
+        elif 'q_dense' in layer:
+            config['LayerName'][layer]['accum_t'] = 'ap_fixed<24,12>'
+            config['LayerName'][layer]['Precision']['result'] = 'ap_fixed<9,6>'
+            config['LayerName'][layer]['Precision']['default'] = 'ap_fixed<9,6>'
 
 print("-----------------------------------")
 print(config)
@@ -82,7 +72,7 @@ print("-----------------------------------")
 hls_model = hls4ml.converters.convert_from_keras_model(model,
                                                        hls_config=config,
                                                        io_type='io_stream',
-                                                       output_dir='hls_output',
+                                                       output_dir=output_dir,
                                                        part='xcvu9p-flgb2104-2-i')
 hls4ml.utils.plot_model(hls_model, show_shapes=True, show_precision=True, to_file='hls4ml_in_plot.png')
 hls_model.compile()
@@ -95,4 +85,4 @@ print('hls4ml:\n', y_hls)
 # Synthesize                                                                                                                           
 hls_model.build(csim=False)
 # Reports                                                                                                                              
-hls4ml.report.read_vivado_report('hls_output')
+hls4ml.report.read_vivado_report(output_dir)
