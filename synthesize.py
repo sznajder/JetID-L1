@@ -226,7 +226,7 @@ def synthezise(mname,plotpath,ONAME,build=False):
   ax.legend(loc='lower right')
   plt.savefig('{}/ROC_keras_{}.png'.format(PLOTS,mname))
   
-  if not 'InteractionNetwork' in mname: #TODO! Add profiling for multiple inputs
+  if not 'GNN_' in mname: #TODO! Add profiling for multiple inputs
     wp, wph, ap, aph = hls4ml.model.profiling.numerical(model,hls_model,X_test)
     wp.savefig("{}/wp_{}.png".format(PLOTS,mname))
     wph.savefig("{}/wph_{}.png".format(PLOTS,mname))
