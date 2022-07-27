@@ -1,0 +1,17 @@
+name: hls4ml-l1jets
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+  - jupyterhub
+  - pydot
+  - graphviz
+  - pip
+  - pip:
+    - jupyter
+    - tensorflow==2.5
+    - tensorflow_datasets
+    - git+https://github.com/fastmachinelearning/hls4ml.git#egg=hls4ml[profiling]
+    - git+https://github.com/google/qkeras.git#egg=qkeras
+    - scikit-learn
+    - uproot
