@@ -27,9 +27,7 @@ import argparse
 
 import os
 
-os.environ['PATH'] = '/opt/Xilinx/Vivado/2020.1/bin:' + os.environ['PATH']
-
-def synthezise(mname,plotpath,ONAME,build=False):
+def synthezise(mname,datapath,plotpath,ONAME,build=False):
 
   model = tf.keras.models.load_model('models/{}.h5'.format(mname),
                                      custom_objects={'QDense': QDense,
@@ -68,8 +66,8 @@ def synthezise(mname,plotpath,ONAME,build=False):
 
   # Has shape (-1,8,3)
   nconst = int(mname.split("_")[-3])
-  X_test = np.ascontiguousarray(np.load('/eos/home-t/thaarres/level1_jet_validation_samples/x_test_{}const_QGraphConv.npy'.format(nconst)))
-  Y_test = np.load('/eos/home-t/thaarres/level1_jet_validation_samples/y_test_{}const_QGraphConv.npy'.format(nconst), allow_pickle=True)
+  X_test = np.ascontiguousarray(np.load('{}/x_test_{}const.npy'.format(datapath,nconst)))
+  Y_test = np.load('{}/y_test_{}const.npy'.format(datapath,nconst), allow_pickle=True)
   X_test = X_test[:3000]
   Y_test = Y_test[:3000]
   
@@ -188,6 +186,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-C", "--create", help="Create projects", action="store_true")
 parser.add_argument("-B", "--build", help="Build projects", action="store_true")
 parser.add_argument("--plotdir", help="Output path for plots", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
+parser.add_argument("--datadir", help="Input path for data", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
+parser.add_argument("--model", help="Choose one model; otherwise do all", default=None)
 parser.add_argument("-o", "--outdir", help="Output path for projects", default="/home/thaarres/HLS_PRJS/")
 parser.add_argument("-D", "--debug", help="High verbose", action="store_true")
 args = parser.parse_args()
@@ -217,15 +217,22 @@ if __name__ == "__main__":
     "model_QMLP_nconst_8_nbits_6", #TODO! CHANGE INPUT LAYER NAME
     "model_QMLP_nconst_8_nbits_8"
           ]
+
+  # just do one model
+  if args.model and args.model in models:
+    models = [args.model]
+  else:
+    print("{} is not a valid model from possible models: {}".format(args.model, models))
   
   PLOTS = args.plotdir
+  DATA = args.datadir
   ONAME = args.outdir
   DEBUG = args.debug
   
   # Generate projects and produce firmware  
   if args.create or args.build:  
     start = time.time()
-    Parallel(n_jobs=4, backend='multiprocessing')(delayed(synthezise)(modelname,PLOTS,ONAME,build=args.build) for modelname in models)
+    Parallel(n_jobs=4, backend='multiprocessing')(delayed(synthezise)(modelname,DATA,PLOTS,ONAME,build=args.build) for modelname in models)
     end = time.time()
     print('Ended after {:.4f} s'.format(end-start))
       
