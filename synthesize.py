@@ -39,7 +39,12 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False):
                                                    })                                       
   model.summary()
 
-  hls4ml.model.optimizer.get_optimizer('output_rounding_saturation_mode').configure(layers=['Activation'], rounding_mode='AP_RND', saturation_mode='AP_SAT')
+  # remove unncessary linear layers by explicitly specifying layer names
+  hls4ml.model.optimizer.get_optimizer('output_rounding_saturation_mode').configure(layers=[
+    'qrelu_e1', 'qrelu_e2', 'qrelu_e3', 
+    'qrelu_n1', 'qrelu_n2', 'qrelu_n3', 
+    'qrelu_g1', 
+    'softmax_g2'], rounding_mode='AP_RND', saturation_mode='AP_SAT')
   config = hls4ml.utils.config_from_keras_model(model, granularity='name', default_precision='ap_fixed<16,6>')
   config['Model']['Strategy'] = 'Latency'
   
@@ -51,12 +56,28 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False):
     elif layer.__class__.__name__ in ['Permute','Concatenate','Flatten','Reshape']:
       print("Skipping trace for:", layer.name)
     else:  
-      config['LayerName'][layer.name]['Trace'] = True  
-   
+      config['LayerName'][layer.name]['Trace'] = True
+      
+  if "InteractionNetwork" in mname:  # For interaction network
+    for layer in model.layers:
+      if 'Conv1D' in layer.__class__.__name__ and "tmul" in layer.name:
+        # note this currently doesn't set the precision because the layer is
+        # a QConv1D with 8 bits (and thus precision is set by optimizer)
+        # better to switch layer to a standard Conv1D (weights are 1s and 0s)
+        config["LayerName"][layer.name]["Precision"]["weight"] = "ap_uint<1>"
+        config["LayerName"][layer.name]["Precision"]["bias"] = "ap_uint<1>"
+    config["LayerName"]["concatenate"] = {}
+    config["LayerName"]["concatenate"]["Precision"] = inputPrecision
+    config["LayerName"]["permute_1"] = {}
+    config["LayerName"]["permute_1"]["Precision"] = inputPrecision
+    config["LayerName"]["permute_2"] = {}
+    config["LayerName"]["permute_2"]["Precision"] = inputPrecision
+    config["LayerName"]["permute_3"] = {}
+    config["LayerName"]["permute_3"]["Precision"] = inputPrecision
+
   output_dir = f'{ONAME}/{mname}'
       
   hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config, output_dir=output_dir, io_type='io_parallel', part='xcvu9p-flgb2104-2l-e')
-  hls4ml.model.optimizer.get_optimizer('output_rounding_saturation_mode').configure(layers=[])
   hls_model.compile()
   
   # Do plots
