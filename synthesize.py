@@ -27,8 +27,10 @@ import argparse
 
 import os
 
-def synthezise(mname,datapath,plotpath,ONAME,build=False):
+def synthezise(mname,datapath,plotpath,ONAME,build=False,trace=False):
 
+  nconst = int(mname.split("_")[-3])
+  nfeat = 3
   model = tf.keras.models.load_model('models/{}.h5'.format(mname),
                                      custom_objects={'QDense': QDense,
                                                      'QActivation': QActivation,
@@ -56,7 +58,7 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False):
     elif layer.__class__.__name__ in ['Permute','Concatenate','Flatten','Reshape']:
       print("Skipping trace for:", layer.name)
     else:  
-      config['LayerName'][layer.name]['Trace'] = True
+      config['LayerName'][layer.name]['Trace'] = trace
       
   if "InteractionNetwork" in mname:  # For interaction network
     for layer in model.layers:
@@ -75,6 +77,18 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False):
     config["LayerName"]["permute_3"] = {}
     config["LayerName"]["permute_3"]["Precision"] = inputPrecision
 
+    config["LayerName"]["tmul_1"]["ReuseFactor"] = nfeat
+    config["LayerName"]["tmul_2"]["ReuseFactor"] = nfeat
+    config["LayerName"]["tmul_3"]["ReuseFactor"] = 2 * nfeat
+
+    config["LayerName"]["conv1D_e1"]["ReuseFactor"] = nconst  # divisors of nconst*(nconst-1)
+    config["LayerName"]["conv1D_e2"]["ReuseFactor"] = nconst
+    config["LayerName"]["conv1D_e3"]["ReuseFactor"] = nconst
+
+    config["LayerName"]["conv1D_n1"]["ReuseFactor"] = nconst  # divisors of nconst
+    config["LayerName"]["conv1D_n2"]["ReuseFactor"] = nconst
+    config["LayerName"]["conv1D_n3"]["ReuseFactor"] = nconst
+
   output_dir = f'{ONAME}/{mname}'
       
   hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config, output_dir=output_dir, io_type='io_parallel', part='xcvu9p-flgb2104-2l-e')
@@ -86,7 +100,6 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False):
   
 
   # Has shape (-1,8,3)
-  nconst = int(mname.split("_")[-3])
   X_test = np.ascontiguousarray(np.load('{}/x_test_{}const.npy'.format(datapath,nconst)))
   Y_test = np.load('{}/y_test_{}const.npy'.format(datapath,nconst), allow_pickle=True)
   X_test = X_test[:3000]
@@ -137,16 +150,18 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False):
   plt.savefig(f'{plotpath}/ROC_keras_{mname}.png')
 
   # if not 'GarNet' in mname: #TODO! Add profiling for multiple inputs
-  profile_plots = hls4ml.model.profiling.numerical(model,hls_model,X_test)
-  for i,p in enumerate(profile_plots):
-    p.savefig(f"{plotpath}/profile_{mname}_{i}.png")
+  if trace:
+    print("Running tracing!")
+    profile_plots = hls4ml.model.profiling.numerical(model,hls_model,X_test)
+    for i,p in enumerate(profile_plots):
+      p.savefig(f"{plotpath}/profile_{mname}_{i}.png")
  
-  fig = hls4ml.model.profiling.compare(model,hls_model,X_test)
-  fig.savefig(f"{plotpath}/compare_{mname}.png")
+    fig = hls4ml.model.profiling.compare(model,hls_model,X_test)
+    fig.savefig(f"{plotpath}/compare_{mname}.png")
 
   
-  print("Running synthesis!")
   if build:
+    print("Running synthesis!")
     report = hls_model.build(csim=False, synth=True, vsynth=True)
     print(report['CSynthesisReport'])
 
@@ -205,6 +220,7 @@ def getReports(indir):
 # Initiate the parser
 parser = argparse.ArgumentParser()
 parser.add_argument("-C", "--create", help="Create projects", action="store_true")
+parser.add_argument("-T", "--trace", help="Trace", action="store_true")
 parser.add_argument("-B", "--build", help="Build projects", action="store_true")
 parser.add_argument("--plotdir", help="Output path for plots", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
 parser.add_argument("--datadir", help="Input path for data", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
