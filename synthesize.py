@@ -29,6 +29,8 @@ import os
 
 def synthezise(mname,datapath,plotpath,ONAME,build=False):
 
+  nconst = int(mname.split("_")[-3])
+  nfeat = 3
   model = tf.keras.models.load_model('models/{}.h5'.format(mname),
                                      custom_objects={'QDense': QDense,
                                                      'QActivation': QActivation,
@@ -38,7 +40,6 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False):
                                                      'GarNet': GarNet
                                                    })                                       
   model.summary()
-
   # remove unncessary linear layers by explicitly specifying layer names
   hls4ml.model.optimizer.get_optimizer('output_rounding_saturation_mode').configure(layers=[
     'qrelu_e1', 'qrelu_e2', 'qrelu_e3', 
@@ -75,6 +76,18 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False):
     config["LayerName"]["permute_3"] = {}
     config["LayerName"]["permute_3"]["Precision"] = inputPrecision
 
+    config["LayerName"]["tmul_1"]["ReuseFactor"] = nfeat
+    config["LayerName"]["tmul_2"]["ReuseFactor"] = nfeat
+    config["LayerName"]["tmul_3"]["ReuseFactor"] = 2 * nfeat
+
+    config["LayerName"]["conv1D_e1"]["ReuseFactor"] = nconst  # divisors of nconst*(nconst-1)
+    config["LayerName"]["conv1D_e2"]["ReuseFactor"] = nconst
+    config["LayerName"]["conv1D_e3"]["ReuseFactor"] = nconst
+
+    config["LayerName"]["conv1D_n1"]["ReuseFactor"] = nconst  # divisors of nconst
+    config["LayerName"]["conv1D_n2"]["ReuseFactor"] = nconst
+    config["LayerName"]["conv1D_n3"]["ReuseFactor"] = nconst
+
   output_dir = f'{ONAME}/{mname}'
       
   hls_model = hls4ml.converters.convert_from_keras_model(model, hls_config=config, output_dir=output_dir, io_type='io_parallel', part='xcvu9p-flgb2104-2l-e')
@@ -86,7 +99,6 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False):
   
 
   # Has shape (-1,8,3)
-  nconst = int(mname.split("_")[-3])
   X_test = np.ascontiguousarray(np.load('{}/x_test_{}const.npy'.format(datapath,nconst)))
   Y_test = np.load('{}/y_test_{}const.npy'.format(datapath,nconst), allow_pickle=True)
   X_test = X_test[:3000]

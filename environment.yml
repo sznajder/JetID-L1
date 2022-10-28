@@ -11,7 +11,7 @@ dependencies:
     - jupyter
     - tensorflow==2.5
     - tensorflow_datasets
-    - git+https://github.com/fastmachinelearning/hls4ml.git#egg=hls4ml[profiling]
+    - git+https://github.com/jmduarte/hls4ml.git@split_pointwise_conv_by_rf#egg=hls4ml[profiling]
     - git+https://github.com/google/qkeras.git#egg=qkeras
     - scikit-learn
     - uproot
