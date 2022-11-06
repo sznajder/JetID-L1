@@ -41,11 +41,11 @@ parser.add_argument("-batch", type=int, default=512, help="batch")
 parser.add_argument("-epochs", type=int, default=200, help="epochs")
 parser.add_argument("-patience", type=int, default=20, help="patience")
 parser.add_argument("-acc", type=int, default=0, help="accuracy or loss")
-parser.add_argument("-seed", type=int, default=7, help="random seed")
+#parser.add_argument("-seed", type=int, default=7, help="random seed")
 args = parser.parse_args()
 
-np.random.seed(args.seed)
-tf.random.set_seed(args.seed)
+#np.random.seed(args.seed)
+#tf.random.set_seed(args.seed)
 
 
 
