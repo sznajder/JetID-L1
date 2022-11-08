@@ -1,6 +1,6 @@
 # pip install git+https://github.com/com:fastmachinelearning/hls4ml.git@main
 
-import sys, os
+import sys, os, time
 import hls4ml
 import pickle
 import tensorflow as tf
@@ -29,8 +29,16 @@ import os
 
 def synthezise(mname,datapath,plotpath,ONAME,build=False,trace=False):
 
-  nconst = int(mname.split("_")[-3])
   nfeat = 3
+
+  if mname.split("_")[-4] == "De": 
+    nconst = int(mname.split("_")[-5])
+    De     = int(mname.split("_")[-3])
+  else:
+    nconst = int(mname.split("_")[-3])
+    De     = 2*nfeat
+    
+  
   model = tf.keras.models.load_model('models/{}.h5'.format(mname),
                                      custom_objects={'QDense': QDense,
                                                      'QActivation': QActivation,
@@ -40,6 +48,8 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False,trace=False):
                                                      'GarNet': GarNet
                                                    })                                       
   model.summary()
+  print("nconst: ", nconst)
+  print("nfeat: " , nfeat)
 
   # remove unncessary linear layers by explicitly specifying layer names
   hls4ml.model.optimizer.get_optimizer('output_rounding_saturation_mode').configure(layers=[
@@ -48,10 +58,12 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False,trace=False):
     'qrelu_g1', 
     'softmax_g2'], rounding_mode='AP_RND', saturation_mode='AP_SAT')
   config = hls4ml.utils.config_from_keras_model(model, granularity='name', default_precision='ap_fixed<16,6>')
+  #config = hls4ml.utils.config_from_keras_model(model, granularity='name', default_precision='ap_fixed<32,16>')
   config['Model']['Strategy'] = 'Latency'
   
   # Handle large span of numerical values in input
   inputPrecision = 'ap_fixed<20,10,AP_RND,AP_SAT>'
+  #inputPrecision = 'ap_fixed<32,16,AP_RND,AP_SAT>'
   for layer in model.layers:
     if layer.__class__.__name__ in ['BatchNormalization','InputLayer']:
       config['LayerName'][layer.name]['Precision'] = inputPrecision
@@ -68,26 +80,41 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False,trace=False):
         # better to switch layer to a standard Conv1D (weights are 1s and 0s)
         config["LayerName"][layer.name]["Precision"]["weight"] = "ap_uint<1>"
         config["LayerName"][layer.name]["Precision"]["bias"] = "ap_uint<1>"
+
+      if 'Conv1D' in layer.__class__.__name__ and layer.name == "conv1D_e1":
+        # conv1D_e1 may not be existed
+        config["LayerName"]["conv1D_e1"]["ReuseFactor"] = nconst  # divisors of nconst*(nconst-1)
+        #print ("conv1D_e1 exists")
+      if 'Conv1D' in layer.__class__.__name__ and layer.name == "conv1D_e2":
+        # conv1D_e2 may not be existed
+        config["LayerName"]["conv1D_e2"]["ReuseFactor"] = nconst  # divisors of nconst*(nconst-1)
+        #print ("conv1D_e2 exists")
+        
+
     config["LayerName"]["concatenate"] = {}
     config["LayerName"]["concatenate"]["Precision"] = inputPrecision
+
     config["LayerName"]["permute_1"] = {}
     config["LayerName"]["permute_1"]["Precision"] = inputPrecision
+
     config["LayerName"]["permute_2"] = {}
     config["LayerName"]["permute_2"]["Precision"] = inputPrecision
+
     config["LayerName"]["permute_3"] = {}
     config["LayerName"]["permute_3"]["Precision"] = inputPrecision
+    #config["LayerName"]["permute_3"] = {}
+    #config["LayerName"]["permute_3"]["Precision"] = 'ap_fixed<10, 2, AP_RND, AP_SAT>'
 
     config["LayerName"]["tmul_1"]["ReuseFactor"] = nfeat
     config["LayerName"]["tmul_2"]["ReuseFactor"] = nfeat
-    config["LayerName"]["tmul_3"]["ReuseFactor"] = 2 * nfeat
+    config["LayerName"]["tmul_3"]["ReuseFactor"] = De #2 * nfeat
 
-    config["LayerName"]["conv1D_e1"]["ReuseFactor"] = nconst  # divisors of nconst*(nconst-1)
-    config["LayerName"]["conv1D_e2"]["ReuseFactor"] = nconst
-    config["LayerName"]["conv1D_e3"]["ReuseFactor"] = nconst
+    config["LayerName"]["conv1D_e3"]["ReuseFactor"] = nconst # divisors of nconst*(nconst-1)
 
     config["LayerName"]["conv1D_n1"]["ReuseFactor"] = nconst  # divisors of nconst
     config["LayerName"]["conv1D_n2"]["ReuseFactor"] = nconst
     config["LayerName"]["conv1D_n3"]["ReuseFactor"] = nconst
+
 
   output_dir = f'{ONAME}/{mname}'
       
@@ -122,6 +149,12 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False,trace=False):
     pickle.dump(accs, fp)
   print('Keras:\n', accuracy_keras)
   print('hls4ml:\n', accuracy_hls4ml)
+
+  accs_log = np.zeros(2)
+  accs_log[0] = accuracy_keras
+  accs_log[1] = accuracy_hls4ml
+  np.savetxt('{}/acc.log'.format(ONAME), accs_log, fmt='%.6f')
+
 
   # Plot the ROC curves
   colors  = ['#d73027','#fc8d59','#fee090','#e0f3f8','#91bfdb','#4575b4']
@@ -222,10 +255,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-C", "--create", help="Create projects", action="store_true")
 parser.add_argument("-T", "--trace", help="Trace", action="store_true")
 parser.add_argument("-B", "--build", help="Build projects", action="store_true")
-parser.add_argument("--plotdir", help="Output path for plots", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
-parser.add_argument("--datadir", help="Input path for data", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
+#parser.add_argument("--plotdir", help="Output path for plots", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
+parser.add_argument("--plotdir", help="Output path for plots", default=None)
+#parser.add_argument("--datadir", help="Input path for data", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
+parser.add_argument("--datadir", help="Input path for data", default="./")
 parser.add_argument("--model", help="Choose one model; otherwise do all", default=None)
-parser.add_argument("-o", "--outdir", help="Output path for projects", default="/home/thaarres/HLS_PRJS/")
+#parser.add_argument("-o", "--outdir", help="Output path for projects", default="/home/thaarres/HLS_PRJS/")
+parser.add_argument("-o", "--outdir", help="Output path for projects", default="./HLS_PRJS/")
 parser.add_argument("-D", "--debug", help="High verbose", action="store_true")
 args = parser.parse_args()
   
@@ -243,11 +279,21 @@ if __name__ == "__main__":
     "model_QGraphConv_nconst_8_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_16_nbits_4",
     "model_QInteractionNetwork_Conv1D_nconst_16_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_16_De_8_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_16_De_10_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_16_De_12_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_16_De_16_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_20_De_10_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_32_nbits_4",
     "model_QInteractionNetwork_Conv1D_nconst_32_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_32_De_6_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_8_nbits_4",
     "model_QInteractionNetwork_Conv1D_nconst_8_nbits_6",
     "model_QInteractionNetwork_Conv1D_nconst_8_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_8_De_8_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_8_De_10_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_8_De_12_nbits_8",
+    "model_QInteractionNetwork_Conv1D_nconst_8_De_16_nbits_8",
     "model_QMLP_nconst_16_nbits_8",
     "model_QMLP_nconst_32_nbits_8",
     "model_QMLP_nconst_8_nbits_4",   #TODO! CHANGE INPUT LAYER NAME
@@ -260,12 +306,20 @@ if __name__ == "__main__":
     models = [args.model]
   else:
     print("{} is not a valid model from possible models: {}".format(args.model, models))
-  
-  PLOTS = args.plotdir
-  DATA = args.datadir
+
   ONAME = args.outdir
-  DEBUG = args.debug
+  #ONAME = '{}_{}'.format(ONAME, time.strftime("%Y%m%d-%H%M%S"))
+
+  if args.plotdir:
+    PLOTS = args.plotdir
+  else :
+    PLOTS = ONAME
+
+  print("output dir:", ONAME)
   
+  DATA = args.datadir
+  DEBUG = args.debug
+ 
   # Generate projects and produce firmware  
   if args.create or args.build:  
     start = time.time()
@@ -290,3 +344,6 @@ if __name__ == "__main__":
     dataPandas = pandas.DataFrame(dataMap)
     print(dataPandas)
     print(dataPandas.to_latex(columns=['architecture','precision','acc_ratio','latency_ns','latency_clks','latency_ii','dsp','lut','ff','bram'],header=['Architecture','Precision ( \# bits )', 'Accuracy Ratio (FPGA/CPU)','Latency [ns]','Latency [clock cycles]','II [clock cycles]','DSP','LUT','FF','BRAM'],index=False,escape=False))
+
+  print("output dir:", ONAME)
+

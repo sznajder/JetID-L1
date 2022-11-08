@@ -152,6 +152,8 @@ scale_n = args.SN           # multiplicative factor for # hidden neurons in Node
 
 if(nmax==32):
     scale_g = 0.12
+elif(nmax==20):
+    scale_g = 0.25
 elif(nmax==16):
     scale_g = 0.35        # multiplicative factor for # hidden neurons in Graph MLP 
 elif(nmax==8):
