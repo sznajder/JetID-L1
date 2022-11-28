@@ -268,7 +268,6 @@ args = parser.parse_args()
    
 if __name__ == "__main__":
   
-
   # List of models to synthesize
   models = [
     "model_QGraphConv_nconst_16_nbits_8",
@@ -283,17 +282,13 @@ if __name__ == "__main__":
     "model_QInteractionNetwork_Conv1D_nconst_16_De_10_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_16_De_12_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_16_De_16_nbits_8",
-    "model_QInteractionNetwork_Conv1D_nconst_20_De_10_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_32_nbits_4",
     "model_QInteractionNetwork_Conv1D_nconst_32_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_32_De_6_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_8_nbits_4",
     "model_QInteractionNetwork_Conv1D_nconst_8_nbits_6",
     "model_QInteractionNetwork_Conv1D_nconst_8_nbits_8",
-    "model_QInteractionNetwork_Conv1D_nconst_8_De_8_nbits_8",
-    "model_QInteractionNetwork_Conv1D_nconst_8_De_10_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_8_De_12_nbits_8",
-    "model_QInteractionNetwork_Conv1D_nconst_8_De_16_nbits_8",
     "model_QMLP_nconst_16_nbits_8",
     "model_QMLP_nconst_32_nbits_8",
     "model_QMLP_nconst_8_nbits_4",   #TODO! CHANGE INPUT LAYER NAME
