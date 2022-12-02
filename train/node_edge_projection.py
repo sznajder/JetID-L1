@@ -1,11 +1,10 @@
 import itertools
 
-import tensorflow.keras as keras
 import tensorflow as tf
 import numpy as np
 
 
-class NodeEdgeProjection(keras.layers.Layer):
+class NodeEdgeProjection(tf.keras.layers.Layer):
     def __init__(self, receiving=True, node_to_edge=True, **kwargs):
         super().__init__(**kwargs)
 
@@ -22,11 +21,7 @@ class NodeEdgeProjection(keras.layers.Layer):
         self._adjacency_matrix = self._assign_adjacency_matrix()
 
     def _assign_adjacency_matrix(self):
-        receiver_sender_list = [
-            i
-            for i in itertools.product(range(self._n_nodes), range(self._n_nodes))
-            if i[0] != i[1]
-        ]
+        receiver_sender_list = itertools.permutations(range(self._n_nodes), r=2)
 
         if self._node_to_edge:
             shape = (1, self._n_edges, self._n_nodes)
