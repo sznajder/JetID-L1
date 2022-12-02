@@ -105,9 +105,14 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False,trace=False):
     #config["LayerName"]["permute_3"] = {}
     #config["LayerName"]["permute_3"]["Precision"] = 'ap_fixed<10, 2, AP_RND, AP_SAT>'
 
-    config["LayerName"]["tmul_1"]["ReuseFactor"] = nfeat
-    config["LayerName"]["tmul_2"]["ReuseFactor"] = nfeat
-    config["LayerName"]["tmul_3"]["ReuseFactor"] = De #2 * nfeat
+    #config["LayerName"]["tmul_1"]["ReuseFactor"] = nfeat
+    #config["LayerName"]["tmul_2"]["ReuseFactor"] = nfeat
+    #config["LayerName"]["tmul_3"]["ReuseFactor"] = De #2 * nfeat
+
+    config["LayerName"]["tmul_1"]["ReuseFactor"] = 17
+    config["LayerName"]["tmul_2"]["ReuseFactor"] = 18
+    config["LayerName"]["tmul_3"]["ReuseFactor"] = 19 
+
 
     config["LayerName"]["conv1D_e3"]["ReuseFactor"] = nconst # divisors of nconst*(nconst-1)
 
@@ -285,6 +290,7 @@ if __name__ == "__main__":
     "model_QInteractionNetwork_Conv1D_nconst_32_nbits_4",
     "model_QInteractionNetwork_Conv1D_nconst_32_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_32_De_6_nbits_8",
+    "model_QInteractionNetwork_Conv1D_SN1_nconst_32_De_6_nbits_8",
     "model_QInteractionNetwork_Conv1D_nconst_8_nbits_4",
     "model_QInteractionNetwork_Conv1D_nconst_8_nbits_6",
     "model_QInteractionNetwork_Conv1D_nconst_8_nbits_8",
