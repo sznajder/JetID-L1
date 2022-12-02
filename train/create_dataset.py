@@ -2,19 +2,11 @@ import numpy as np
 import h5py
 import os
 
-# for pT, eta_rel, phi_rel
-#   myJetConstituentList = np.array(f.get("jetConstituentList")[:,:,[5,8,11]])
-# for px, py, pz
-#   myJetConstituentList = np.array(f.get("jetConstituentList")[:,:,[0,1,2]])
-#   myJetConstituentList = np.array(f.get("jetConstituentList"))
-#
-# Jet Constituents Features =  [0='j1_px', 1='j1_py', 2='j1_pz', 3='j1_e', 4='j1_erel', 5='j1_pt', 6='j1_ptrel',
-#                         7='j1_eta', 8='j1_etarel', 9='j1_etarot', 10='j1_phi', 11='j1_phirel', 12='j1_phirot',
-#                         13='j1_deltaR', 14='j1_costheta', 15='j1_costhetarel', 16='j1_pdgid']
+os.system("zenodo_get 10.5281/zenodo.3602260 -o data")
+os.system("tar xvzf data/hls4ml_LHCjet_150p_train.tar.gz -C data/")
 
-#Data PATH
-TRAIN_PATH = '/homes/zque/ws/CERN/jedi_lhc_dataset/150p_dataset/train/'
-
+# Data PATH
+TRAIN_PATH = 'data/train/'
 
 
 first=True
@@ -46,11 +38,6 @@ for file in os.listdir(TRAIN_PATH):
 print("Target shape =", target.shape)
 print("Jet Constituents shape =", jetConstituent.shape)
 
-#from einops import rearrange, reduce, repeat
-
-# Convert target format from one-hot encoding to single neuron
-#target = np.argmax(target, axis=1)
-
 # The dataset is N_jets x N_constituents x N_features
 njet     = jetConstituent.shape[0]
 nconstit = jetConstituent.shape[1]
@@ -79,5 +66,5 @@ for j in range(njet):
 jetConstituent = constituents[0:ij,0:max_constit,:]
 target = target[0:ij,:]
 
-np.save('jetConstituent_150_3f.npy', jetConstituent)
-np.save('jetConstituent_target_150_3f.npy', target)
+np.save('data/jetConstituent_150_3f.npy', jetConstituent)
+np.save('data/jetConstituent_target_150_3f.npy', target)
