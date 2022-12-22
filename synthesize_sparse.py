@@ -27,7 +27,7 @@ import argparse
 
 import os
 
-def synthezise(mname,datapath,plotpath,ONAME,build=False,trace=False):
+def synthesize(mname,datapath,plotpath,ONAME,build=False,trace=False):
 
   nfeat = 3
 
@@ -89,6 +89,8 @@ def synthezise(mname,datapath,plotpath,ONAME,build=False,trace=False):
         # conv1D_e2 may not exist
         config["LayerName"]["conv1D_e2"]["ReuseFactor"] = nconst  # divisors of nconst*(nconst-1)
         #print ("conv1D_e2 exists")
+      if 'Conv1D' in layer.__class__.__name__:
+        config["LayerName"][layer.name]["ConvImplementation"] = "Pointwise"
         
 
     config["LayerName"]["concatenate"] = {}
@@ -325,7 +327,7 @@ if __name__ == "__main__":
   # Generate projects and produce firmware  
   if args.create or args.build:  
     start = time.time()
-    Parallel(n_jobs=4, backend='multiprocessing')(delayed(synthezise)(modelname,DATA,PLOTS,ONAME,build=args.build) for modelname in models)
+    Parallel(n_jobs=4, backend='multiprocessing')(delayed(synthesize)(modelname,DATA,PLOTS,ONAME,build=args.build) for modelname in models)
     end = time.time()
     print('Ended after {:.4f} s'.format(end-start))
       
