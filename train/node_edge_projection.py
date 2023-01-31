@@ -88,8 +88,8 @@ def parse_node_edge_projection_layer(
     layer["n_in"] = input_shapes[0][1]
     layer["n_nodes"] = keras_layer["config"]["n_nodes"]
     layer["n_edges"] = keras_layer["config"]["n_edges"]
-    layer["receiving"] = keras_layer["config"]["receiving"]
-    layer["node_to_edge"] = keras_layer["config"]["node_to_edge"]
+    layer["receiving"] = str(keras_layer["config"]["receiving"]).lower()
+    layer["node_to_edge"] = str(keras_layer["config"]["node_to_edge"]).lower()
 
     if input_names is not None:
         layer["inputs"] = input_names
@@ -102,13 +102,13 @@ def parse_node_edge_projection_layer(
 config_template = """struct config{index} : nnet::node_edge_projection_config {{
     static const unsigned n_in = {n_in};
     static const unsigned n_nodes = {n_nodes};
-    static const unsigned n_nodes = {n_edges};
+    static const unsigned n_edges = {n_edges};
     static const bool receiving = {receiving};
     static const bool node_to_edge = {node_to_edge};
 }};\n"""
 
 function_template = (
-    "nnet::node_edge_projection<{input_t}, {result_t}, {config}>({input}, {output});"
+    "nnet::node_edge_projection<{input_t}, {output_t}, {config}>({input}, {output});"
 )
 include_list = ["nnet_utils/nnet_node_edge_projection.h"]
 
@@ -138,7 +138,7 @@ class HLSNodeEdgeProjectionFunctionTemplate(
 def register_custom_layer():
     # Register the converter for custom Keras layer
     hls4ml.converters.register_keras_layer_handler(
-        "HLSNodeEdgeProjection", parse_node_edge_projection_layer
+        "NodeEdgeProjection", parse_node_edge_projection_layer
     )
 
     # Register the hls4ml's IR layer
@@ -146,6 +146,10 @@ def register_custom_layer():
 
 
 if __name__ == "__main__":
+
+    # Register custom layer
+    register_custom_layer()
+
     # Register the optimization passes (if any)
     backend = hls4ml.backends.get_backend("Vivado")
 
@@ -153,8 +157,10 @@ if __name__ == "__main__":
     backend.register_template(HLSNodeEdgeProjectionConfigTemplate)
     backend.register_template(HLSNodeEdgeProjectionFunctionTemplate)
 
+    from pathlib import Path
+
     # Register HLS implementation
-    backend.register_source("nnet_node_edge_projection.h")
+    backend.register_source(Path(Path.cwd() / "nnet_node_edge_projection.h"))
 
     # Test if it works
     kmodel = tf.keras.models.Sequential(

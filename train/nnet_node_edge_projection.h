@@ -14,6 +14,16 @@ struct node_edge_projection_config {
     static const bool node_to_edge = true;
 };
 
+
+template<class data_T, class res_T, typename CONFIG_T>
+void node_edge_projection(
+    data_T data[CONFIG_T::in_width * CONFIG_T::n_chan],
+    res_T  res[CONFIG_T::out_width * CONFIG_T::n_filt]
+)
+{
+
+}
+
 template<class data_T, class res_T, typename CONFIG_T>
 void pointwise_conv_1d_latency_sparse_type1(
     data_T data[CONFIG_T::in_width * CONFIG_T::n_chan],
@@ -136,3 +146,4 @@ void pointwise_conv_1d_latency_sparse_type3(
 }
 }
 
+#endif
