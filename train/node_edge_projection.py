@@ -98,7 +98,7 @@ def parse_node_edge_projection_layer(
     layer = {}
     layer["class_name"] = "HLSNodeEdgeProjection"
     layer["name"] = keras_layer["config"]["name"]
-    layer["n_in"] = input_shapes[0][1]
+    layer["n_in"] = input_shapes[0][2]
     layer["n_nodes"] = keras_layer["config"]["n_nodes"]
     layer["n_edges"] = keras_layer["config"]["n_edges"]
     layer["receiving"] = keras_layer["config"]["receiving"]
@@ -107,6 +107,7 @@ def parse_node_edge_projection_layer(
     layer["out_width"] = layer["n_edges"] if layer["node_to_edge"] else layer["n_nodes"]
 
     output_shapes = [layer["out_width"], layer["n_in"]]
+    print(input_shapes)
 
     if input_names is not None:
         layer["inputs"] = input_names
@@ -196,7 +197,7 @@ if __name__ == "__main__":
 
     hmodel = hls4ml.converters.convert_from_keras_model(
         kmodel,
-        output_dir="hls4mlprj_node_edge_projection",
+        output_dir="prj_tmp/hls4mlprj_node_edge_projection",
         backend="Vivado",
         io_type="io_parallel",
         hls_config={"Model": {"Precision": "ap_int<6>", "ReuseFactor": 1}},

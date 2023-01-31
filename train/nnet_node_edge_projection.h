@@ -17,135 +17,93 @@ struct node_edge_projection_config {
 };
 
 
+
+
+// (Rr)T * X
+template<class data_T, class res_T, typename CONFIG_T>
+void node_edge_projection_bmm_rrtx(
+    data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
+    res_T  res[CONFIG_T::out_width * CONFIG_T::n_in]
+){
+    #pragma HLS PIPELINE II=1
+    for (int i = 0; i < CONFIG_T::in_width; i++) {
+        for (int k = 0; k < (CONFIG_T::in_width - 1); k++) {
+            for (int j = 0; j < CONFIG_T::n_in; j++) {
+                int index_res = i*CONFIG_T::n_in*(CONFIG_T::in_width-1) + k*CONFIG_T::n_in + j;
+                int index_data = i*CONFIG_T::n_in + j;
+                res[index_res] = data[index_data];
+            }
+        }
+    }
+
+}
+
+// (Rs)T * X
+template<class data_T, class res_T, typename CONFIG_T>
+void node_edge_projection_bmm_rstx(
+    data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
+    res_T  res[CONFIG_T::out_width * CONFIG_T::n_in]
+){
+    #pragma HLS PIPELINE II=1
+    for (int i = 0; i < CONFIG_T::in_width; i++) {
+        for (int k = 0; k < (CONFIG_T::in_width - 1); k++) {
+            for (int j = 0; j < CONFIG_T::n_in; j++) {
+                int index_res = i*CONFIG_T::n_in*(CONFIG_T::in_width-1) + k*CONFIG_T::n_in + j;
+                int index_data = ((k<i)? k : (k+1))*CONFIG_T::n_in + j;
+                res[index_res] = data[index_data];
+            }
+        }
+    }
+
+}
+
+// (Rr) * E
+template<class data_T, class res_T, typename CONFIG_T>
+void node_edge_projection_bmm_rre(
+    data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
+    res_T  res[CONFIG_T::out_width * CONFIG_T::n_in]
+){
+    #pragma HLS PIPELINE II=1
+
+    data_T acc[CONFIG_T::n_in];
+    #pragma HLS ARRAY_PARTITION variable=acc complete
+
+    for (int i = 0; i < CONFIG_T::out_width; i++) {
+        for(int k = 0; k < (CONFIG_T::out_width-1);k++){
+            for (int j = 0; j < CONFIG_T::n_in; j++) {
+
+                int index = i*CONFIG_T::n_in*(CONFIG_T::out_width-1) + k*CONFIG_T::n_in + j;
+                data_T tmp = (k==0)? ((data_T) 0):acc[j];  
+                acc[j] = tmp + data[index];
+            }
+        }
+        for (int j = 0; j < CONFIG_T::n_in; j++) {
+            res[i*CONFIG_T::n_in + j] = (res_T) acc[j]; 
+        }
+    }
+
+}
+
+
 template<class data_T, class res_T, typename CONFIG_T>
 void node_edge_projection(
     data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
     res_T  res[CONFIG_T::out_width * CONFIG_T::n_in]
 )
 {
+    assert(CONFIG_T::receiving || CONFIG_T::node_to_edge);
 
-}
-
-template<class data_T, class res_T, typename CONFIG_T>
-void pointwise_conv_1d_latency_sparse_type1(
-    data_T data[CONFIG_T::in_width * CONFIG_T::n_chan],
-    res_T  res[CONFIG_T::out_width * CONFIG_T::n_filt],
-    // weights and biases are not used 
-    typename CONFIG_T::weight_t weights[CONFIG_T::n_chan * CONFIG_T::n_filt],
-    typename CONFIG_T::bias_t   biases[CONFIG_T::n_filt])
-{
-    assert(CONFIG_T::filt_width == 1);
-
-    // Use a function_instantiate in case it helps to explicitly optimize unchanging weights/biases
-    //#pragma HLS function_instantiate variable=weights,biases
-
-    // Parallel mode
-    //#pragma HLS PIPELINE II=CONFIG_T::reuse_factor
-    #pragma HLS PIPELINE II=1
-    //#pragma HLS ARRAY_PARTITION variable=biases complete dim=0
-
-    // Limit multipliers to control parallelization
-    //const int multiplier_limit = compute_multiplier_limit<CONFIG_T>(weights);
-    //#pragma HLS ALLOCATION instances=mul limit=multiplier_limit operation
-
-    assert(CONFIG_T::n_chan * (CONFIG_T::n_chan-1) == CONFIG_T::n_filt);
-    assert(CONFIG_T::in_width == CONFIG_T::out_width);
-    // check this paper ( arxiv.org/abs/2209.14065 ) for details
-    ConvOut: for(int ii = 0; ii < CONFIG_T::out_width; ii++) {
-        ConvChan: for(int jj = 0; jj < CONFIG_T::n_chan; jj++) {
-            ConvChanM1: for(int kk = 0; kk < CONFIG_T::n_chan-1; kk++) {
-                int index_res = ii*CONFIG_T::n_chan*(CONFIG_T::n_chan-1) + jj*(CONFIG_T::n_chan-1) + kk;
-                int index_data = ii*CONFIG_T::n_chan + jj;
-                res[index_res] = data[index_data];
-
-            }
-        }
-    }
-
-}
-
-
-template<class data_T, class res_T, typename CONFIG_T>
-void pointwise_conv_1d_latency_sparse_type2(
-    data_T data[CONFIG_T::in_width * CONFIG_T::n_chan],
-    res_T  res[CONFIG_T::out_width * CONFIG_T::n_filt],
-    // weights and biases are not used 
-    typename CONFIG_T::weight_t weights[CONFIG_T::n_chan * CONFIG_T::n_filt],
-    typename CONFIG_T::bias_t   biases[CONFIG_T::n_filt])
-{
-    assert(CONFIG_T::filt_width == 1);
-
-    // Use a function_instantiate in case it helps to explicitly optimize unchanging weights/biases
-    //#pragma HLS function_instantiate variable=weights,biases
-
-    // Parallel mode
-    //#pragma HLS PIPELINE II=CONFIG_T::reuse_factor
-    #pragma HLS PIPELINE II=1
-    //#pragma HLS ARRAY_PARTITION variable=biases complete dim=0
-
-    // Limit multipliers to control parallelization
-    //const int multiplier_limit = compute_multiplier_limit<CONFIG_T>(weights);
-    //#pragma HLS ALLOCATION instances=mul limit=multiplier_limit operation
-
-    assert(CONFIG_T::n_chan * (CONFIG_T::n_chan-1) == CONFIG_T::n_filt);
-    assert(CONFIG_T::in_width == CONFIG_T::out_width);
-
-    // check this paper ( arxiv.org/abs/2209.14065 ) for details
-    ConvOut: for(int ii = 0; ii < CONFIG_T::out_width; ii++) {
-        ConvChan: for(int jj = 0; jj < CONFIG_T::n_chan; jj++) {
-            ConvChanM1: for(int kk = 0; kk < CONFIG_T::n_chan-1; kk++) {
-                int index_res = ii*CONFIG_T::n_chan*(CONFIG_T::n_chan-1) + jj*(CONFIG_T::n_chan-1) + kk;
-                int index_data = ii*CONFIG_T::n_chan + ((kk<jj)?kk:(kk+1));
-                res[index_res] = data[index_data];
-
-            }
-        }
-    }
-
-}
-
-template<class data_T, class res_T, typename CONFIG_T>
-void pointwise_conv_1d_latency_sparse_type3(
-    data_T data[CONFIG_T::in_width * CONFIG_T::n_chan],
-    res_T  res[CONFIG_T::out_width * CONFIG_T::n_filt],
-    // weights and biases are not used 
-    typename CONFIG_T::weight_t weights[CONFIG_T::n_chan * CONFIG_T::n_filt],
-    typename CONFIG_T::bias_t   biases[CONFIG_T::n_filt])
-{
-    assert(CONFIG_T::filt_width == 1);
-
-    // Use a function_instantiate in case it helps to explicitly optimize unchanging weights/biases
-    //#pragma HLS function_instantiate variable=weights,biases
-
-    // Parallel mode
-    //#pragma HLS PIPELINE II=CONFIG_T::reuse_factor
-    #pragma HLS PIPELINE II=1
-    //#pragma HLS ARRAY_PARTITION variable=biases complete dim=0
-
-    // Limit multipliers to control parallelization
-    //const int multiplier_limit = compute_multiplier_limit<CONFIG_T>(weights);
-    //#pragma HLS ALLOCATION instances=mul limit=multiplier_limit operation
-
-    assert(CONFIG_T::n_chan == CONFIG_T::n_filt*(CONFIG_T::n_filt-1));
-    assert(CONFIG_T::in_width == CONFIG_T::out_width);
-
-    // check this paper ( arxiv.org/abs/2209.14065 ) for details
-    ConvOut: for(int ii = 0; ii < CONFIG_T::out_width; ii++) {
-        ConvChan: for(int jj = 0; jj < CONFIG_T::n_filt; jj++) {
-
-            typename CONFIG_T::accum_t acc = (typename CONFIG_T::accum_t) 0; 
-            ConvChanM1: for(int kk = 0; kk < CONFIG_T::n_filt-1; kk++) {
-                int index_data = ii*CONFIG_T::n_filt*(CONFIG_T::n_filt-1) + jj*(CONFIG_T::n_filt-1) + kk;
-                acc = acc + data[index_data];
-            }
-
-            int index_res = ii*CONFIG_T::n_filt + jj;
-            res[index_res] = (res_T) acc; 
-        }
-    }
+    if(CONFIG_T::receiving && CONFIG_T::node_to_edge){
+        node_edge_projection_bmm_rrtx<data_T, res_T, CONFIG_T>(data, res);
+    } else if (!CONFIG_T::receiving && CONFIG_T::node_to_edge){
+        node_edge_projection_bmm_rstx<data_T, res_T, CONFIG_T>(data, res);
+    } else if (!CONFIG_T::receiving && !CONFIG_T::node_to_edge){
+        node_edge_projection_bmm_rre<data_T, res_T, CONFIG_T>(data, res);
+    } 
 
 
 }
+
 }
 
 #endif
