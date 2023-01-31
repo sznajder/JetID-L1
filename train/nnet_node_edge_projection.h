@@ -12,13 +12,15 @@ struct node_edge_projection_config {
     static const unsigned n_edges = 90;
     static const bool receiving = true;
     static const bool node_to_edge = true;
+    static const unsigned in_width = 10;
+    static const unsigned out_width = 90;
 };
 
 
 template<class data_T, class res_T, typename CONFIG_T>
 void node_edge_projection(
-    data_T data[CONFIG_T::in_width * CONFIG_T::n_chan],
-    res_T  res[CONFIG_T::out_width * CONFIG_T::n_filt]
+    data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
+    res_T  res[CONFIG_T::out_width * CONFIG_T::n_in]
 )
 {
 

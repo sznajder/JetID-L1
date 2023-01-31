@@ -4,6 +4,7 @@ import tensorflow as tf
 import numpy as np
 
 import hls4ml
+from hls4ml.model.attributes import Attribute
 
 
 class NodeEdgeProjection(tf.keras.layers.Layer):
@@ -71,10 +72,22 @@ class NodeEdgeProjection(tf.keras.layers.Layer):
 class HLSNodeEdgeProjection(hls4ml.model.layers.Layer):
     """hls4ml implementation of NodeEdgeProjection"""
 
+    _expected_attributes = [
+        Attribute("n_in"),
+        Attribute("n_nodes"),
+        Attribute("n_edges"),
+        Attribute("receiving", value_type=bool, default=True),
+        Attribute("node_to_edge", value_type=bool, default=True),
+        Attribute("in_width"),
+        Attribute("out_width"),
+    ]
+
     def initialize(self):
-        inp = self.get_input_variable()
-        shape = inp.shape
-        dims = inp.dim_names
+        if self.attributes["node_to_edge"]:
+            shape = [self.attributes["n_edges"], self.attributes["n_in"]]
+        else:
+            shape = [self.attributes["n_nodes"], self.attributes["n_in"]]
+        dims = [f"N_OUT_{self.index}_0", f"N_OUT_{self.index}_1"]
         self.add_output_variable(shape, dims)
 
 
@@ -88,13 +101,17 @@ def parse_node_edge_projection_layer(
     layer["n_in"] = input_shapes[0][1]
     layer["n_nodes"] = keras_layer["config"]["n_nodes"]
     layer["n_edges"] = keras_layer["config"]["n_edges"]
-    layer["receiving"] = str(keras_layer["config"]["receiving"]).lower()
-    layer["node_to_edge"] = str(keras_layer["config"]["node_to_edge"]).lower()
+    layer["receiving"] = keras_layer["config"]["receiving"]
+    layer["node_to_edge"] = keras_layer["config"]["node_to_edge"]
+    layer["in_width"] = layer["n_nodes"] if layer["node_to_edge"] else layer["n_edges"]
+    layer["out_width"] = layer["n_edges"] if layer["node_to_edge"] else layer["n_nodes"]
+
+    output_shapes = [layer["out_width"], layer["n_in"]]
 
     if input_names is not None:
         layer["inputs"] = input_names
 
-    return layer, [shape for shape in input_shapes[0]]
+    return layer, output_shapes
 
 
 # HLS Templates - No specific pragmas used; generic enough for both Intel and Vivado
@@ -105,6 +122,8 @@ config_template = """struct config{index} : nnet::node_edge_projection_config {{
     static const unsigned n_edges = {n_edges};
     static const bool receiving = {receiving};
     static const bool node_to_edge = {node_to_edge};
+    static const unsigned in_width = {in_width};
+    static const unsigned out_width = {out_width};
 }};\n"""
 
 function_template = (
@@ -120,6 +139,8 @@ class HLSNodeEdgeProjectionConfigTemplate(hls4ml.backends.template.LayerConfigTe
 
     def format(self, node):
         params = self._default_config_params(node)
+        params["receiving"] = str(params["receiving"]).lower()
+        params["node_to_edge"] = str(params["node_to_edge"]).lower()
         return self.template.format(**params)
 
 
