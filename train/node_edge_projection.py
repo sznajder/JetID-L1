@@ -85,11 +85,11 @@ def parse_node_edge_projection_layer(
     layer = {}
     layer["class_name"] = "HLSNodeEdgeProjection"
     layer["name"] = keras_layer["config"]["name"]
+    layer["n_in"] = input_shapes[0][1]
     layer["n_nodes"] = keras_layer["config"]["n_nodes"]
     layer["n_edges"] = keras_layer["config"]["n_edges"]
     layer["receiving"] = keras_layer["config"]["receiving"]
     layer["node_to_edge"] = keras_layer["config"]["node_to_edge"]
-    layer["n_in"] = input_shapes[0][1]
 
     if input_names is not None:
         layer["inputs"] = input_names
@@ -101,10 +101,14 @@ def parse_node_edge_projection_layer(
 
 config_template = """struct config{index} : nnet::node_edge_projection_config {{
     static const unsigned n_in = {n_in};
+    static const unsigned n_nodes = {n_nodes};
+    static const unsigned n_nodes = {n_edges};
+    static const bool receiving = {receiving};
+    static const bool node_to_edge = {node_to_edge};
 }};\n"""
 
 function_template = (
-    "nnet::node_edge_proejction<{input_t}, {config}>({input}, {output});"
+    "nnet::node_edge_projection<{input_t}, {result_t}, {config}>({input}, {output});"
 )
 include_list = ["nnet_utils/nnet_node_edge_projection.h"]
 

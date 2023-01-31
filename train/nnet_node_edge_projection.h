@@ -1,10 +1,18 @@
-#ifndef NNET_CONV1D_LATENCY_H_
-#define NNET_CONV1D_LATENCY_H_
+#ifndef NNET_NODE_EDGE_PROJECTION_H_
+#define NNET_NODE_EDGE_PROJECTION_H_
 
 #include "nnet_common.h"
 #include <cstdlib>
 
 namespace nnet {
+
+struct node_edge_projection_config {
+    static const unsigned n_in = 10;
+    static const unsigned n_nodes = 10;
+    static const unsigned n_edges = 90;
+    static const bool receiving = true;
+    static const bool node_to_edge = true;
+};
 
 template<class data_T, class res_T, typename CONFIG_T>
 void pointwise_conv_1d_latency_sparse_type1(
