@@ -115,8 +115,6 @@ def parse_node_edge_projection_layer(
     return layer, output_shapes
 
 
-# HLS Templates - No specific pragmas used; generic enough for both Intel and Vivado
-
 config_template = """struct config{index} : nnet::node_edge_projection_config {{
     static const unsigned n_in = {n_in};
     static const unsigned n_nodes = {n_nodes};
@@ -188,8 +186,8 @@ if __name__ == "__main__":
     n_nodes = 5
     n_edges = n_nodes*(n_nodes-1) 
     n_feat  = 4
-    receiving = False
-    node_to_edge = True
+    receiving = True
+    node_to_edge = False
 
 
     in_width  = n_nodes if node_to_edge else n_edges
@@ -204,8 +202,6 @@ if __name__ == "__main__":
 
     x = np.random.randint(-5, 5, (in_width, n_feat), dtype="int32")
     kres = kmodel(x)
-    print(x)
-    print(kres)
 
     hmodel = hls4ml.converters.convert_from_keras_model(
         kmodel,
@@ -216,8 +212,14 @@ if __name__ == "__main__":
     )
 
     hmodel.compile()
-    hres = hmodel.predict(x.astype("float32"))
 
-    
-    hres = np.reshape(hres, (out_width, n_feat))
+    hres = hmodel.predict(x.astype("float32")).reshape(kres.shape)
+
+    print("input")
+    print(x)
+    print("kres")
+    print(kres)
+    print("hres")
     print(hres)
+    np.testing.assert_array_equal(kres, hres)
+    print("kres=hres")
