@@ -185,15 +185,27 @@ if __name__ == "__main__":
     backend.register_source(Path(Path.cwd() / "nnet_node_edge_projection.h"))
 
     # Test if it works
+    n_nodes = 5
+    n_edges = n_nodes*(n_nodes-1) 
+    n_feat  = 4
+    receiving = False
+    node_to_edge = True
+
+
+    in_width  = n_nodes if node_to_edge else n_edges
+    out_width = n_edges if node_to_edge else n_nodes
+
     kmodel = tf.keras.models.Sequential(
         [
-            tf.keras.layers.Input(shape=(8, 4)),
-            NodeEdgeProjection(),
+            tf.keras.layers.Input(shape=(in_width, n_feat)),
+            NodeEdgeProjection( receiving = receiving, node_to_edge = node_to_edge),
         ]
     )
 
-    x = np.random.randint(-5, 5, (8, 4), dtype="int32")
+    x = np.random.randint(-5, 5, (in_width, n_feat), dtype="int32")
     kres = kmodel(x)
+    print(x)
+    print(kres)
 
     hmodel = hls4ml.converters.convert_from_keras_model(
         kmodel,
@@ -205,3 +217,7 @@ if __name__ == "__main__":
 
     hmodel.compile()
     hres = hmodel.predict(x.astype("float32"))
+
+    
+    hres = np.reshape(hres, (out_width, n_feat))
+    print(hres)
