@@ -19,8 +19,8 @@ struct node_edge_projection_config {
 // (Rr)T * X
 template <class data_T, class res_T, typename CONFIG_T>
 void node_edge_projection_bmm_rrtx(
-    data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
-    res_T res[CONFIG_T::out_width * CONFIG_T::n_in]) {
+  data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
+  res_T  res[CONFIG_T::out_width * CONFIG_T::n_in]) {
   #pragma HLS PIPELINE II=1
   for (int i = 0; i < CONFIG_T::in_width; i++) {
     for (int k = 0; k < (CONFIG_T::in_width - 1); k++) {
@@ -37,8 +37,8 @@ void node_edge_projection_bmm_rrtx(
 // (Rs)T * X
 template <class data_T, class res_T, typename CONFIG_T>
 void node_edge_projection_bmm_rstx(
-    data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
-    res_T res[CONFIG_T::out_width * CONFIG_T::n_in]) {
+  data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
+  res_T  res[CONFIG_T::out_width * CONFIG_T::n_in]) {
   #pragma HLS PIPELINE II=1
   for (int i = 0; i < CONFIG_T::in_width; i++) {
     for (int k = 0; k < (CONFIG_T::in_width - 1); k++) {
@@ -55,8 +55,8 @@ void node_edge_projection_bmm_rstx(
 // (Rr) * E
 template <class data_T, class res_T, typename CONFIG_T>
 void node_edge_projection_bmm_rre(
-    data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
-    res_T res[CONFIG_T::out_width * CONFIG_T::n_in]) {
+  data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
+  res_T  res[CONFIG_T::out_width * CONFIG_T::n_in]) {
   #pragma HLS PIPELINE II=1
 
   data_T acc[CONFIG_T::n_in];
@@ -87,7 +87,7 @@ void node_edge_projection(data_T data[CONFIG_T::in_width * CONFIG_T::n_in],
     node_edge_projection_bmm_rrtx<data_T, res_T, CONFIG_T>(data, res);
   } else if (!CONFIG_T::receiving && CONFIG_T::node_to_edge) {
     node_edge_projection_bmm_rstx<data_T, res_T, CONFIG_T>(data, res);
-  } else if (!CONFIG_T::receiving && !CONFIG_T::node_to_edge) {
+  } else if (CONFIG_T::receiving && !CONFIG_T::node_to_edge) {
     node_edge_projection_bmm_rre<data_T, res_T, CONFIG_T>(data, res);
   }
 }

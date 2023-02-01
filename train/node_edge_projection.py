@@ -183,7 +183,7 @@ if __name__ == "__main__":
     backend.register_source(Path(Path.cwd() / "nnet_node_edge_projection.h"))
 
     # Test if it works
-    n_nodes = 5
+    n_nodes = 8
     n_edges = n_nodes*(n_nodes-1) 
     n_feat  = 4
     receiving = True
