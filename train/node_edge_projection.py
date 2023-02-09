@@ -56,8 +56,6 @@ class NodeEdgeProjection(tf.keras.layers.Layer):
         config = super().get_config()
         config.update(
             {
-                "n_nodes": self._n_nodes,
-                "n_edges": self._n_edges,
                 "receiving": self._receiving,
                 "node_to_edge": self._node_to_edge,
             }
