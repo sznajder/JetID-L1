@@ -97,6 +97,7 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
 
     if "InteractionNetwork" in mname:  # For interaction network
         for layer in model.layers:
+            config["LayerName"][layer.name]["Strategy"] = "latency"
             if "Conv1D" in layer.__class__.__name__ and "tmul" in layer.name:
                 # note this currently doesn't set the precision because the layer is
                 # a QConv1D with 8 bits (and thus precision is set by optimizer)
@@ -140,13 +141,15 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
         if "tmul_3" in config["LayerName"]:
             config["LayerName"]["tmul_3"]["ReuseFactor"] = De  # 2 * nfeat
 
-        config["LayerName"]["conv1D_e3"][
-            "ReuseFactor"
-        ] = nconst  # divisors of nconst*(nconst-1)
+        if "conv1D_e3" in config["LayerName"]:
+            config["LayerName"]["conv1D_e3"][
+                "ReuseFactor"
+            ] = nconst  # divisors of nconst*(nconst-1)
 
         config["LayerName"]["conv1D_n1"]["ReuseFactor"] = nconst  # divisors of nconst
         config["LayerName"]["conv1D_n2"]["ReuseFactor"] = nconst
-        config["LayerName"]["conv1D_n3"]["ReuseFactor"] = nconst
+        if "conv1D_n3" in config["LayerName"]:
+            config["LayerName"]["conv1D_n3"]["ReuseFactor"] = nconst
 
     output_dir = f"{ONAME}/{mname}"
 
@@ -394,7 +397,7 @@ if __name__ == "__main__":
         "model_QInteractionNetwork_Conv1D_nconst_8_nbits_6",
         "model_QInteractionNetwork_Conv1D_nconst_8_nbits_8",
         "model_QInteractionNetwork_Conv1D_nconst_8_De_12_nbits_8",
-        "model_QInteractionNetwork_NodeEdgeProjection_nconst_8_nbits_8",
+        "model_QInteractionNetwork_NodeEdgeProj_Conv1D_nconst_8_nbits_8",
         "model_QMLP_nconst_16_nbits_8",
         "model_QMLP_nconst_32_nbits_8",
         "model_QMLP_nconst_8_nbits_4",  # TODO! CHANGE INPUT LAYER NAME
