@@ -47,7 +47,7 @@ def parse_node_edge_projection_layer(
     layer["in_width"] = input_shapes[0][1]
     layer["out_width"] = layer["n_edges"] if layer["node_to_edge"] else layer["n_nodes"]
 
-    output_shapes = [layer["out_width"], layer["n_in"]]
+    output_shapes = [input_shapes[0][0], layer["out_width"], layer["n_in"]]
 
     if input_names is not None:
         layer["inputs"] = input_names
