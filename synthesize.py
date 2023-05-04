@@ -398,6 +398,8 @@ if __name__ == "__main__":
         "model_QInteractionNetwork_Conv1D_nconst_8_nbits_8",
         "model_QInteractionNetwork_Conv1D_nconst_8_De_12_nbits_8",
         "model_QInteractionNetwork_NodeEdgeProj_Conv1D_nconst_8_nbits_8",
+        "model_QInteractionNetwork_NodeEdgeProj_Conv1D_nconst_16_nbits_8",
+        "model_QInteractionNetwork_NodeEdgeProj_Conv1D_nconst_32_nbits_8",
         "model_QMLP_nconst_16_nbits_8",
         "model_QMLP_nconst_32_nbits_8",
         "model_QMLP_nconst_8_nbits_4",  # TODO! CHANGE INPUT LAYER NAME
