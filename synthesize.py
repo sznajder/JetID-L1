@@ -56,6 +56,8 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
     model.summary()
     print("nconst: ", nconst)
     print("nfeat: ", nfeat)
+    reuse_factor_conv1d = int(nconst / 4)
+    print("reuse factor: ", reuse_factor_conv1d)
 
     register_custom_layer()
     # remove unncessary linear layers by explicitly specifying layer names
@@ -109,19 +111,19 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
                 # conv1D_e1 may not exist
                 config["LayerName"]["conv1D_e1"][
                     "ReuseFactor"
-                ] = nconst  # divisors of nconst*(nconst-1)
+                ] = reuse_factor_conv1d  # divisors of nconst*(nconst-1)
                 # print ("conv1D_e1 exists")
             if "Conv1D" in layer.__class__.__name__ and layer.name == "conv1D_e2":
                 # conv1D_e2 may not exist
                 config["LayerName"]["conv1D_e2"][
                     "ReuseFactor"
-                ] = nconst  # divisors of nconst*(nconst-1)
+                ] = reuse_factor_conv1d  # divisors of nconst*(nconst-1)
                 # print ("conv1D_e2 exists")
             if "Conv1D" in layer.__class__.__name__:
                 config["LayerName"][layer.name]["ConvImplementation"] = "Pointwise"
 
-        config["LayerName"]["concatenate"] = {}
-        config["LayerName"]["concatenate"]["Precision"] = inputPrecision
+        #config["LayerName"]["concatenate"] = {}
+        #config["LayerName"]["concatenate"]["Precision"] = inputPrecision
 
         config["LayerName"]["permute_1"] = {}
         config["LayerName"]["permute_1"]["Precision"] = inputPrecision
@@ -142,14 +144,12 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
             config["LayerName"]["tmul_3"]["ReuseFactor"] = De  # 2 * nfeat
 
         if "conv1D_e3" in config["LayerName"]:
-            config["LayerName"]["conv1D_e3"][
-                "ReuseFactor"
-            ] = nconst  # divisors of nconst*(nconst-1)
+            config["LayerName"]["conv1D_e3"][ "ReuseFactor" ] = reuse_factor_conv1d  # divisors of nconst*(nconst-1)
 
-        config["LayerName"]["conv1D_n1"]["ReuseFactor"] = nconst  # divisors of nconst
-        config["LayerName"]["conv1D_n2"]["ReuseFactor"] = nconst
+        config["LayerName"]["conv1D_n1"]["ReuseFactor"] = reuse_factor_conv1d  # divisors of nconst
+        config["LayerName"]["conv1D_n2"]["ReuseFactor"] = reuse_factor_conv1d
         if "conv1D_n3" in config["LayerName"]:
-            config["LayerName"]["conv1D_n3"]["ReuseFactor"] = nconst
+            config["LayerName"]["conv1D_n3"]["ReuseFactor"] = reuse_factor_conv1d
 
     output_dir = f"{ONAME}/{mname}"
 
@@ -364,7 +364,7 @@ parser.add_argument("-B", "--build", help="Build projects", action="store_true")
 # parser.add_argument("--plotdir", help="Output path for plots", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
 parser.add_argument("--plotdir", help="Output path for plots", default=None)
 # parser.add_argument("--datadir", help="Input path for data", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
-parser.add_argument("--datadir", help="Input path for data", default="./")
+parser.add_argument("--datadir", help="Input path for data", default="./data")
 parser.add_argument("--model", help="Choose one model; otherwise do all", default=None)
 # parser.add_argument("-o", "--outdir", help="Output path for projects", default="/home/thaarres/HLS_PRJS/")
 parser.add_argument(
