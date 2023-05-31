@@ -56,7 +56,7 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
     model.summary()
     print("nconst: ", nconst)
     print("nfeat: ", nfeat)
-    reuse_factor_conv1d = int(nconst / 4)
+    reuse_factor_conv1d = int(nconst)
     print("reuse factor: ", reuse_factor_conv1d)
 
     register_custom_layer()
