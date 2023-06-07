@@ -2,6 +2,7 @@ import numpy as np
 import os
 import time
 import argparse
+import random
 
 import tensorflow as tf
 from tensorflow.keras.models import Model
@@ -37,7 +38,13 @@ parser.add_argument("-patience", type=int, default=40, help="patience")
 parser.add_argument("-acc", type=int, default=0, help="accuracy or loss")
 parser.add_argument("-p_en", type=int, default=0, help="enable train with pruning")
 parser.add_argument("-p_rate", type=float, default=0.5, help="pruning rate")
+parser.add_argument("-seed", type=int, default=1, help="seed")
 args = parser.parse_args()
+
+
+random.seed(args.seed)
+np.random.seed(args.seed)
+tf.random.set_seed(args.seed)
 
 jetConstituent = np.load("data/jetConstituent_150_3f.npy")
 target = np.load("data/jetConstituent_target_150_3f.npy")
@@ -335,7 +342,7 @@ model.summary()
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 
-outputdir = "nconst{}_nbits{}_De{}_Do{}_NL{}_SE{}_SN{}_SG{}_batch{}_acc{}_P{}_{}".format(
+outputdir = "nconst{}_nbits{}_De{}_Do{}_NL{}_SE{}_SN{}_SG{}_batch{}_acc{}_P{}_Seed{}_{}".format(
     nmax,
     nbits,
     De,
@@ -347,6 +354,7 @@ outputdir = "nconst{}_nbits{}_De{}_Do{}_NL{}_SE{}_SN{}_SG{}_batch{}_acc{}_P{}_{}
     args.batch,
     args.acc,
     args.p_en,
+    args.seed,
     time.strftime("%Y%m%d-%H%M%S"),
 )
 
@@ -441,8 +449,13 @@ accuracy_keras = float(
     accuracy_score(np.argmax(Y_test, axis=1), np.argmax(y_keras, axis=1))
 )
 
-accs = np.zeros(2)
+
+
+accs = np.zeros(3)
 accs[0] = accuracy_keras
+if(args.p_en):
+    accs[1] = args.p_rate
+
 np.savetxt("{}/acc.txt".format(outputdir), accs, fmt="%.6f")
 print("Keras:\n", accuracy_keras)
 
