@@ -14,6 +14,7 @@ struct node_edge_projection_config {
   static const bool node_to_edge = true;
   static const unsigned in_width = 10;
   static const unsigned out_width = 90;
+  typedef model_default_t accum_t;
 };
 
 // (Rr)T * X
@@ -59,7 +60,7 @@ void node_edge_projection_bmm_rre(
   res_T  res[CONFIG_T::out_width * CONFIG_T::n_in]) {
   #pragma HLS PIPELINE II=1
 
-  data_T acc[CONFIG_T::n_in];
+ typename CONFIG_T::accum_t acc[CONFIG_T::n_in];
   #pragma HLS ARRAY_PARTITION variable=acc complete
 
   for (int i = 0; i < CONFIG_T::out_width; i++) {
@@ -68,7 +69,7 @@ void node_edge_projection_bmm_rre(
 
         int index = i * CONFIG_T::n_in * (CONFIG_T::out_width - 1) +
                     k * CONFIG_T::n_in + j;
-        data_T tmp = (k == 0) ? ((data_T)0) : acc[j];
+        typename CONFIG_T::accum_t tmp = (k == 0) ? ((typename CONFIG_T::accum_t)0) : acc[j];
         acc[j] = tmp + data[index];
       }
     }
