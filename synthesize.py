@@ -83,9 +83,14 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
 
     # Handle large span of numerical values in input
     inputPrecision = "ap_fixed<20,10,AP_RND,AP_SAT>"
+    #inputPrecision = "ap_fixed<10,5,AP_RND,AP_SAT>"
     # inputPrecision = 'ap_fixed<32,16,AP_RND,AP_SAT>'
     for layer in model.layers:
-        if layer.__class__.__name__ in ["BatchNormalization", "InputLayer"]:
+        if layer.__class__.__name__ in ["InputLayer"]:
+            config["LayerName"][layer.name]["Precision"] = 'ap_fixed<32,16,AP_RND,AP_SAT>'
+            #config["LayerName"][layer.name]["Precision"] = inputPrecision
+            config["LayerName"][layer.name]["Trace"] = trace
+        if layer.__class__.__name__ in ["BatchNormalization"]:
             config["LayerName"][layer.name]["Precision"] = inputPrecision
             config["LayerName"][layer.name]["Trace"] = trace
         elif layer.__class__.__name__ in [
