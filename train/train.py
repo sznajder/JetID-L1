@@ -2,6 +2,7 @@ import numpy as np
 import os
 import time
 import argparse
+import random
 
 import tensorflow as tf
 from tensorflow.keras.models import Model
@@ -13,7 +14,12 @@ from tensorflow.keras.layers import (
     Activation,
 )
 from tensorflow.keras.optimizers import Adam
-from qkeras import QDense, QConv1D, QActivation
+from qkeras import QActivation, QDense, QConv1D, QConv2D, quantized_bits
+from qkeras.autoqkeras.utils import print_qmodel_summary
+
+from sklearn.metrics import accuracy_score
+from tensorflow_model_optimization.python.core.sparsity.keras import pruning_wrapper
+
 
 from node_edge_projection import NodeEdgeProjection
 
@@ -21,14 +27,24 @@ from node_edge_projection import NodeEdgeProjection
 parser = argparse.ArgumentParser()
 parser.add_argument("-nmax", type=int, default=8, help="number of particle")
 parser.add_argument("-De", type=int, default=8, help="De")
+parser.add_argument("-Do", type=int, default=6, help="Do")
 parser.add_argument("-NL", type=int, default=0, help="number of layer for the MLP_e")
 parser.add_argument("-SE", type=int, default=0, help="scale_e")
 parser.add_argument("-SN", type=int, default=2, help="scale_n")
+parser.add_argument("-SG", type=int, default=4096, help="size of the first layer of MLP_g")
 parser.add_argument("-batch", type=int, default=512, help="batch")
 parser.add_argument("-epochs", type=int, default=200, help="epochs")
-parser.add_argument("-patience", type=int, default=20, help="patience")
+parser.add_argument("-patience", type=int, default=40, help="patience")
 parser.add_argument("-acc", type=int, default=0, help="accuracy or loss")
+parser.add_argument("-p_en", type=int, default=0, help="enable train with pruning")
+parser.add_argument("-p_rate", type=float, default=0.5, help="pruning rate")
+parser.add_argument("-seed", type=int, default=1, help="seed")
 args = parser.parse_args()
+
+
+random.seed(args.seed)
+np.random.seed(args.seed)
+tf.random.set_seed(args.seed)
 
 jetConstituent = np.load("data/jetConstituent_150_3f.npy")
 target = np.load("data/jetConstituent_target_150_3f.npy")
@@ -111,12 +127,12 @@ print("#features = ", nfeat)
 
 # Params for 8 constituents - try
 De = args.De  # size of latent edges features representations
-Do = 6  # size of latent nodes features representations
+Do = args.Do  # size of latent nodes features representations
 scale_e = args.SE  # multiplicative factor for # hidden neurons in Edges MLP
 scale_n = args.SN  # multiplicative factor for # hidden neurons in Nodes MLP
 
 if nmax == 32:
-    scale_g = 0.12
+    scale_g = float(args.SG/(nmax*Do))/(nmax*Do)
 elif nmax == 20:
     scale_g = 0.25
 elif nmax == 16:
@@ -277,10 +293,48 @@ model = Model(inputs=inp, outputs=out)
 # Define the optimizer ( minimization algorithm )
 optim = Adam(learning_rate=0.0005)
 
-# Compile the Model
-model.compile(
-    optimizer=optim, loss="categorical_crossentropy", metrics=["categorical_accuracy"]
-)
+if args.p_en:
+    import tensorflow_model_optimization as tfmot
+    from tensorflow_model_optimization.sparsity import keras as sparsity
+    from tensorflow_model_optimization.python.core.sparsity.keras import pruning_callbacks
+
+    NSTEPS = int (( int(len(X_train_val) * 0.3))/args.batch)
+
+    def pruneFunction(layer):
+        pruning_params = {
+            'pruning_schedule': sparsity.PolynomialDecay(
+                initial_sparsity=0.0, final_sparsity=args.p_rate, begin_step=NSTEPS * 2, end_step=NSTEPS * 10, frequency=NSTEPS
+            )
+        }
+        #pruning_params_mlp_e = {
+        #    'pruning_schedule': sparsity.PolynomialDecay(
+        #        initial_sparsity=0.0, final_sparsity=0.5, begin_step=NSTEPS * 2, end_step=NSTEPS * 10, frequency=NSTEPS
+        #    )
+        #}
+        if isinstance(layer, tf.keras.layers.Conv1D): 
+            return tfmot.sparsity.keras.prune_low_magnitude(layer, **pruning_params)
+        #if isinstance(layer, tf.keras.layers.Conv1D) and layer.name != 'conv1D_e3':   
+        #    return tfmot.sparsity.keras.prune_low_magnitude(layer, **pruning_params)
+        #if isinstance(layer, tf.keras.layers.Conv1D) and layer.name == 'conv1D_e3':
+        #    return tfmot.sparsity.keras.prune_low_magnitude(layer, **pruning_params_mlp_e)
+        if isinstance(layer, tf.keras.layers.Dense) and layer.name != 'dense_g2': # exclude output_dense
+            return tfmot.sparsity.keras.prune_low_magnitude(layer, **pruning_params)
+        return layer
+
+    print_qmodel_summary(model)
+    model = tf.keras.models.clone_model(model, clone_function=pruneFunction)
+
+    model.compile(
+        optimizer=optim, loss="categorical_crossentropy", metrics=["categorical_accuracy"]
+    )
+    
+    pr = pruning_callbacks.UpdatePruningStep() 
+else:
+
+    # Compile the Model
+    model.compile(
+        optimizer=optim, loss="categorical_crossentropy", metrics=["categorical_accuracy"]
+    )
 
 # Model Summary
 model.summary()
@@ -288,20 +342,31 @@ model.summary()
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
 
-outputdir = "nconst{}_nbits{}_De{}_NL{}_SE{}_SN{}_batch{}_acc{}_{}".format(
+outputdir = "nconst{}_nbits{}_De{}_Do{}_NL{}_SE{}_SN{}_SG{}_batch{}_acc{}_P{}_Seed{}_{}".format(
     nmax,
     nbits,
     De,
+    Do,
     NL,
     scale_e,
     scale_n,
+    args.SG,
     args.batch,
     args.acc,
+    args.p_en,
+    args.seed,
     time.strftime("%Y%m%d-%H%M%S"),
 )
 
 print("output dir: ", outputdir)
 os.mkdir(outputdir)
+
+
+mname = "model_QInteractionNetwork_nconst_{}_nbits_{}".format(
+        nmax, 
+        nbits,
+)
+
 
 patience = args.patience
 
@@ -315,12 +380,10 @@ if args.acc:
 
     chkp = ModelCheckpoint(
         outputdir
-        + "/model_QInteractionNetwork_nconst_"
-        + str(nmax)
-        + "_nbits_"
-        + str(nbits)
+        + "/"
+        + mname
         + ".h5",
-        monitor="val_loss",
+        monitor="val_categorical_accuracy",
         verbose=1,
         save_best_only=True,
         save_weights_only=False,
@@ -337,10 +400,8 @@ else:
     # this saves our model architecture + parameters into mlp_model.h5
     chkp = ModelCheckpoint(
         outputdir
-        + "/model_QInteractionNetwork_nconst_"
-        + str(nmax)
-        + "_nbits_"
-        + str(nbits)
+        + "/"
+        + mname 
         + ".h5",
         monitor="val_loss",
         verbose=1,
@@ -350,6 +411,13 @@ else:
         save_freq="epoch",
     )
 
+
+if args.p_en:
+    jetid_callbacks = [es, ls, chkp, pr]
+else: 
+    jetid_callbacks = [es, ls, chkp]
+
+
 # Train classifier
 history = model.fit(
     X_train_val,
@@ -357,19 +425,37 @@ history = model.fit(
     epochs=args.epochs,
     batch_size=args.batch,  # small batch
     verbose=1,
-    callbacks=[es, ls, chkp],
+    callbacks=jetid_callbacks,
     validation_split=0.3,
 )
 
-from sklearn.metrics import accuracy_score
+
+model = tf.keras.models.load_model(
+    "{}/{}.h5".format(outputdir, mname),
+    custom_objects={
+        "QDense": QDense,
+        "QActivation": QActivation,
+        "QConv1D": QConv1D,
+        "QConv2D": QConv2D,
+        "quantized_bits": quantized_bits,
+        #"GarNet": GarNet,
+        "NodeEdgeProjection": NodeEdgeProjection,
+        "PruneLowMagnitude": pruning_wrapper.PruneLowMagnitude,
+    },
+)
 
 y_keras = model.predict(X_test)
 accuracy_keras = float(
     accuracy_score(np.argmax(Y_test, axis=1), np.argmax(y_keras, axis=1))
 )
 
-accs = np.zeros(2)
+
+
+accs = np.zeros(3)
 accs[0] = accuracy_keras
+if(args.p_en):
+    accs[1] = args.p_rate
+
 np.savetxt("{}/acc.txt".format(outputdir), accs, fmt="%.6f")
 print("Keras:\n", accuracy_keras)
 

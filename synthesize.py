@@ -56,6 +56,8 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
     model.summary()
     print("nconst: ", nconst)
     print("nfeat: ", nfeat)
+    reuse_factor_conv1d = int(nconst / 1)
+    print("reuse factor: ", reuse_factor_conv1d)
 
     register_custom_layer()
     # remove unncessary linear layers by explicitly specifying layer names
@@ -85,6 +87,7 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
     for layer in model.layers:
         if layer.__class__.__name__ in ["BatchNormalization", "InputLayer"]:
             config["LayerName"][layer.name]["Precision"] = inputPrecision
+            config["LayerName"][layer.name]["Trace"] = trace
         elif layer.__class__.__name__ in [
             "Permute",
             "Concatenate",
@@ -109,19 +112,19 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
                 # conv1D_e1 may not exist
                 config["LayerName"]["conv1D_e1"][
                     "ReuseFactor"
-                ] = nconst  # divisors of nconst*(nconst-1)
+                ] = reuse_factor_conv1d  # divisors of nconst*(nconst-1)
                 # print ("conv1D_e1 exists")
             if "Conv1D" in layer.__class__.__name__ and layer.name == "conv1D_e2":
                 # conv1D_e2 may not exist
                 config["LayerName"]["conv1D_e2"][
                     "ReuseFactor"
-                ] = nconst  # divisors of nconst*(nconst-1)
+                ] = reuse_factor_conv1d  # divisors of nconst*(nconst-1)
                 # print ("conv1D_e2 exists")
             if "Conv1D" in layer.__class__.__name__:
                 config["LayerName"][layer.name]["ConvImplementation"] = "Pointwise"
 
-        config["LayerName"]["concatenate"] = {}
-        config["LayerName"]["concatenate"]["Precision"] = inputPrecision
+        # config["LayerName"]["concatenate"] = {}
+        # config["LayerName"]["concatenate"]["Precision"] = inputPrecision
 
         config["LayerName"]["permute_1"] = {}
         config["LayerName"]["permute_1"]["Precision"] = inputPrecision
@@ -144,12 +147,14 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
         if "conv1D_e3" in config["LayerName"]:
             config["LayerName"]["conv1D_e3"][
                 "ReuseFactor"
-            ] = nconst  # divisors of nconst*(nconst-1)
+            ] = reuse_factor_conv1d  # divisors of nconst*(nconst-1)
 
-        config["LayerName"]["conv1D_n1"]["ReuseFactor"] = nconst  # divisors of nconst
-        config["LayerName"]["conv1D_n2"]["ReuseFactor"] = nconst
+        config["LayerName"]["conv1D_n1"][
+            "ReuseFactor"
+        ] = reuse_factor_conv1d  # divisors of nconst
+        config["LayerName"]["conv1D_n2"]["ReuseFactor"] = reuse_factor_conv1d
         if "conv1D_n3" in config["LayerName"]:
-            config["LayerName"]["conv1D_n3"]["ReuseFactor"] = nconst
+            config["LayerName"]["conv1D_n3"]["ReuseFactor"] = reuse_factor_conv1d
 
     output_dir = f"{ONAME}/{mname}"
 
@@ -179,6 +184,8 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
         "{}/y_test_{}const.npy".format(datapath, nconst), allow_pickle=True
     )
     X_test = X_test[:3000]
+    # transform pt -> log(pt+1)
+    # X_test[:, :, 0] = np.log(X_test[:, :, 0] + 1)
     Y_test = Y_test[:3000]
 
     if mname.find("QMLP") != -1:
@@ -254,6 +261,21 @@ def synthesize(mname, datapath, plotpath, ONAME, build=False, trace=False):
 
         fig = hls4ml.model.profiling.compare(model, hls_model, X_test)
         fig.savefig(f"{plotpath}/compare_{mname}.png")
+
+        y_hls, hls4ml_trace = hls_model.trace(X_test)
+        keras_trace = hls4ml.model.profiling.get_ymodel_keras(model, X_test)
+
+        for layer in hls4ml_trace.keys():
+            plt.figure()
+            plt.scatter(
+                hls4ml_trace[layer].flatten(), keras_trace[layer].flatten(), s=0.2
+            )
+            min_x = min(np.amin(hls4ml_trace[layer]), np.amin(keras_trace[layer]))
+            max_x = max(np.amax(hls4ml_trace[layer]), np.amax(keras_trace[layer]))
+            plt.plot([min_x, max_x], [min_x, max_x], c="gray")
+            plt.xlabel("hls4ml {}".format(layer))
+            plt.ylabel("QKeras {}".format(layer))
+            plt.savefig(os.path.join(plotpath, f"profile_2d_{layer}.png"))
 
     if build:
         print("Running synthesis!")
@@ -364,7 +386,7 @@ parser.add_argument("-B", "--build", help="Build projects", action="store_true")
 # parser.add_argument("--plotdir", help="Output path for plots", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
 parser.add_argument("--plotdir", help="Output path for plots", default=None)
 # parser.add_argument("--datadir", help="Input path for data", default="/eos/home-t/thaarres/www/l1_jet_tagging/l1_jet_tagging_hls4ml_dataset/")
-parser.add_argument("--datadir", help="Input path for data", default="./")
+parser.add_argument("--datadir", help="Input path for data", default="./data")
 parser.add_argument("--model", help="Choose one model; otherwise do all", default=None)
 # parser.add_argument("-o", "--outdir", help="Output path for projects", default="/home/thaarres/HLS_PRJS/")
 parser.add_argument(
@@ -435,7 +457,9 @@ if __name__ == "__main__":
     if args.create or args.build:
         start = time.time()
         Parallel(n_jobs=4, backend="multiprocessing")(
-            delayed(synthesize)(modelname, DATA, PLOTS, ONAME, build=args.build)
+            delayed(synthesize)(
+                modelname, DATA, PLOTS, ONAME, build=args.build, trace=args.trace
+            )
             for modelname in models
         )
         end = time.time()
