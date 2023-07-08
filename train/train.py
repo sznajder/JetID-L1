@@ -131,16 +131,17 @@ Do = args.Do  # size of latent nodes features representations
 scale_e = args.SE  # multiplicative factor for # hidden neurons in Edges MLP
 scale_n = args.SN  # multiplicative factor for # hidden neurons in Nodes MLP
 
-if nmax == 32:
-    scale_g = float(args.SG/(nmax*Do))/(nmax*Do)
-elif nmax == 20:
-    scale_g = 0.25
-elif nmax == 16:
-    scale_g = 0.35  # multiplicative factor for # hidden neurons in Graph MLP
-elif nmax == 8:
-    scale_g = 1  # multiplicative factor for # hidden neurons in Graph MLP
+#if nmax == 32:
+#    scale_g = float(args.SG/(nmax*Do))/(nmax*Do)
+#elif nmax == 16:
+#    scale_g = float(args.SG/(nmax*Do))/(nmax*Do)
+#    #scale_g = 0.35  # multiplicative factor for # hidden neurons in Graph MLP
+#elif nmax == 8:
+#    scale_g = float(args.SG/(nmax*Do))/(nmax*Do)
+#    #scale_g = 1  # multiplicative factor for # hidden neurons in Graph MLP
 
 
+scale_g = float(args.SG/(nmax*Do))/(nmax*Do)
 NL = args.NL
 
 
