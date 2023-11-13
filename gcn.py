@@ -3,9 +3,10 @@
 
 # For 32 constituents
 if (nconstit==32) :
-    nchannels=36
+    nchannels=32
     poolsiz=6
-    nhidden1 = 22            
+#    nhidden1 = 22            
+    nhidden1 = 40            
     nhidden2 = 0
     nhidden3 = 0
 
@@ -56,7 +57,7 @@ inp = Input(shape=(nconstit,nfeat), name="inp")   # Conv1D input format
 
 # Conv1D with kernel_size=1 and stride=1 to get neighbouring nodes embedded features ( nchannels )
 #hn = QConv1D(nchannels, kernel_size=1, strides=1, name='conv1D_2', activation=conv_qbits, kernel_quantizer=qbits, bias_quantizer=qbits, use_bias="False" )(h)
-hn = QConv1D(nchannels, kernel_size=1, strides=1, name='conv1D_2', kernel_quantizer=qbits, bias_quantizer=qbits, use_bias="False" )(inp)
+hn = QConv1D(nchannels, kernel_size=1, strides=1, name='conv1D_1', kernel_quantizer=qbits, bias_quantizer=qbits, use_bias="False" )(inp)
 hn = QActivation( activation = conv_qbits, name = 'activ_conv_1')(hn) # linear convolution activation
 
 # Dense layer to get each neighbouring node  embedded features ( nchannels ). 
@@ -66,7 +67,7 @@ hn = QActivation( activation = conv_qbits, name = 'activ_conv_1')(hn) # linear c
 # Conv1D with kernel_size=1 and stride=1 to get each node embedded features ( nchannels )
 #   input node features ( pt, eta_rel, phi_rel) ---- mapped into ----> nchannels features 
 #h = QConv1D(nchannels, kernel_size=1, strides=1, name='conv1D_1', activation=conv_qbits, kernel_quantizer=qbits, bias_quantizer=qbits, use_bias="True" )(h)
-h = QConv1D(nchannels, kernel_size=1, strides=1, name='conv1D_1', kernel_quantizer=qbits, bias_quantizer=qbits, use_bias="True" )(inp)
+h = QConv1D(nchannels, kernel_size=1, strides=1, name='conv1D_2', kernel_quantizer=qbits, bias_quantizer=qbits, use_bias="True" )(inp)
 h = QActivation( activation = conv_qbits, name = 'activ_conv_2')(h) # linear convolution activation
 
 # Dense layer to get each node embedded features ( nchannels ). 
